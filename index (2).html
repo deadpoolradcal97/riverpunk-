@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>River Raid Overdrive - Ultra Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
+
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #030712;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            color: #fff;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Glassmorphism HUD */
+        .hud-panel {
+            background: rgba(10, 20, 35, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+        }
+
+        .glow-cyan {
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+        }
+
+        .glow-red {
+            text-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+        }
+
+        /* Pulse alarm animations */
+        @keyframes alarm-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.96); }
+        }
+
+        .fuel-alarm {
+            animation: alarm-pulse 0.5s infinite;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, #0f172a 0%, #020617 100%);
+        }
+
+        canvas {
+            background-color: #051329;
+            box-shadow: 0 0 40px rgba(0, 240, 255, 0.2);
+            touch-action: none;
+        }
+
+        /* Responsive Mobile Touch Buttons */
+        .touch-btn {
+            backdrop-filter: blur(4px);
+            transition: transform 0.05s ease, background-color 0.1s;
+        }
+        .touch-btn:active {
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-white overflow-hidden">
+
+    <div id="game-container">
+        <!-- Main Game Rendering Canvas -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Dynamic Game UI / HUD Layer -->
+        <div id="ui-layer" class="absolute inset-0 pointer-events-none flex flex-col justify-between p-3 sm:p-5 z-10">
+            
+            <!-- TOP BAR HUD -->
+            <div class="flex justify-between items-start w-full max-w-4xl mx-auto gap-2">
+                
+                <!-- Score & Combo -->
+                <div class="hud-panel rounded-xl p-2 sm:p-3 flex items-center gap-3 border-l-4 border-l-cyan-400">
+                    <div>
+                        <div class="text-[10px] sm:text-xs text-cyan-300 font-semibold uppercase tracking-wider">Pontuação</div>
+                        <div id="hud-score" class="text-xl sm:text-3xl font-black font-orbitron text-cyan-400 glow-cyan">000,000</div>
+                    </div>
+                    <div class="border-l border-cyan-500/30 pl-3">
+                        <div class="text-[10px] sm:text-xs text-amber-300 font-semibold uppercase tracking-wider">Combo</div>
+                        <div id="hud-combo" class="text-lg sm:text-2xl font-bold font-orbitron text-amber-400">x1.0</div>
+                    </div>
+                </div>
+
+                <!-- Boss Health HUD (Visible during Boss Fights) -->
+                <div id="boss-hud" class="hidden flex-1 max-w-sm mx-2 hud-panel rounded-xl p-2 sm:p-3 border-red-500/50">
+                    <div class="flex justify-between items-center mb-1">
+                        <span id="boss-name" class="text-[10px] sm:text-xs font-bold font-orbitron text-red-400 tracking-wider">ENCOURAÇADO RIO GRANDE</span>
+                        <span id="boss-hp-text" class="text-[10px] sm:text-xs font-orbitron text-red-300">100%</span>
+                    </div>
+                    <div class="w-full h-2.5 sm:h-3 bg-gray-900 rounded-full overflow-hidden p-0.5 border border-red-500/40">
+                        <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 rounded-full transition-all duration-100 w-full"></div>
+                    </div>
+                </div>
+
+                <!-- Fuel Gauge & Player Lives -->
+                <div class="hud-panel rounded-xl p-2 sm:p-3 min-w-[150px] sm:min-w-[180px] border-r-4 border-r-emerald-400">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] sm:text-xs text-emerald-300 font-semibold uppercase">Combustível</span>
+                        <span id="fuel-text" class="text-[10px] sm:text-xs font-bold font-orbitron text-emerald-400">100%</span>
+                    </div>
+                    <div class="w-full h-2.5 sm:h-3 bg-gray-900 rounded-full overflow-hidden p-0.5 border border-emerald-500/30">
+                        <div id="fuel-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-100 w-full"></div>
+                    </div>
+                    <div class="flex justify-between items-center mt-1 pt-1 border-t border-emerald-500/20 text-[10px] sm:text-xs">
+                        <div>Vidas: <span id="hud-lives" class="text-amber-400 font-bold font-orbitron">3</span></div>
+                        <div>Bombas: <span id="hud-emps" class="text-purple-400 font-bold font-orbitron">2</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Low Fuel Warning Banner -->
+            <div id="low-fuel-warning" class="hidden self-center hud-panel bg-red-950/90 border-red-500 px-6 py-1.5 rounded-full fuel-alarm">
+                <p class="text-red-400 font-orbitron font-bold text-xs sm:text-sm tracking-widest text-center">⚠️ COMBUSTÍVEL CRÍTICO ⚠️</p>
+            </div>
+
+            <!-- Desktop Controls Hint (Bottom Left) -->
+            <div class="hidden md:block self-start hud-panel rounded-xl p-2 text-[11px] text-gray-300">
+                <div><span class="text-cyan-400 font-bold">WASD / Setas</span>: Mover / Boost / Freio</div>
+                <div><span class="text-cyan-400 font-bold">ESPAÇO / Z / J</span>: Atirar (Atire sem parar)</div>
+                <div><span class="text-purple-400 font-bold">E / K / Shift</span>: Bomba Especial EMP</div>
+            </div>
+        </div>
+
+        <!-- Touch Screen Controls for Mobile Devices -->
+        <div id="touch-controls" class="absolute inset-0 pointer-events-none hidden z-20 flex flex-col justify-between p-4">
+            <div class="flex-1"></div>
+            <div class="flex justify-between items-end w-full max-w-2xl mx-auto pointer-events-auto">
+                <!-- Virtual Joystick Zone -->
+                <div id="joystick-zone" class="w-32 h-32 sm:w-36 sm:h-36 bg-cyan-950/30 border-2 border-cyan-500/40 rounded-full relative touch-none flex items-center justify-center backdrop-blur-sm">
+                    <div id="joystick-knob" class="w-12 h-12 bg-cyan-400/60 rounded-full border border-cyan-200 shadow-lg transform translate-x-0 translate-y-0"></div>
+                </div>
+
+                <!-- Touch Action Buttons Grid -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btn-brake" class="touch-btn w-14 h-14 rounded-full bg-slate-800/80 border border-slate-400 text-slate-200 font-bold text-[10px] font-orbitron flex items-center justify-center shadow-lg">FREIO</button>
+                    <button id="btn-boost" class="touch-btn w-14 h-14 rounded-full bg-amber-600/80 border border-amber-300 text-amber-100 font-bold text-[10px] font-orbitron flex items-center justify-center shadow-lg">BOOST</button>
+                    <button id="btn-emp" class="touch-btn w-14 h-14 rounded-full bg-purple-600/80 border border-purple-300 text-purple-100 font-bold text-[10px] font-orbitron flex items-center justify-center shadow-lg">BOMBA</button>
+                    <button id="btn-fire" class="touch-btn w-18 h-18 rounded-full bg-gradient-to-br from-cyan-500 to-teal-600 border-2 border-cyan-200 text-white font-black text-xs font-orbitron flex items-center justify-center shadow-xl glow-cyan">TIRO</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- START / MAIN MENU OVERLAY -->
+        <div id="main-menu" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-30">
+            <div class="max-w-md w-full hud-panel p-6 sm:p-8 rounded-2xl border-cyan-500/40 text-center flex flex-col items-center shadow-2xl">
+                <div class="px-3 py-1 bg-cyan-500/10 border border-cyan-400/30 rounded-full text-cyan-300 text-xs font-semibold uppercase tracking-widest mb-2">
+                    Edição Remasterizada Sci-Fi
+                </div>
+                <h1 class="text-4xl sm:text-5xl font-black font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-200 to-amber-400 mb-1">
+                    RIVER RAID
+                </h1>
+                <h2 class="text-lg sm:text-xl font-bold font-orbitron text-cyan-400 tracking-widest mb-5">OVERDRIVE</h2>
+
+                <p class="text-xs sm:text-sm text-gray-300 mb-5 leading-relaxed">
+                    Pilote o caça tático sobre o rio hostil. Destrua comboios de navios, jatos, submarinos e pontes, gerencie o combustível e enfrente chefões colossais!
+                </p>
+
+                <div class="w-full bg-slate-900/90 p-3.5 rounded-xl border border-cyan-500/20 text-left text-xs text-gray-300 mb-6 space-y-1.5">
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 bg-emerald-400 rounded-full"></span> <span>Voe sobre depósitos <strong class="text-emerald-400">FUEL</strong> para abastecer ou atire neles por pontos!</span></div>
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 bg-amber-400 rounded-full"></span> <span>Atire sem parar em pontes e barcos para acumular combos.</span></div>
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 bg-purple-400 rounded-full"></span> <span>Use o <strong class="text-purple-400">EMP</strong> para limpar os projéteis na tela.</span></div>
+                </div>
+
+                <button id="start-btn" class="w-full py-4 bg-gradient-to-r from-cyan-500 to-teal-400 hover:from-cyan-400 hover:to-teal-300 text-slate-950 font-black font-orbitron text-lg rounded-xl shadow-lg shadow-cyan-500/30 active:scale-95 transition-all">
+                    INICIAR MISSÃO
+                </button>
+            </div>
+        </div>
+
+        <!-- GAME OVER / STATS OVERLAY -->
+        <div id="game-over-screen" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 z-30">
+            <div class="max-w-md w-full hud-panel p-6 sm:p-8 rounded-2xl border-red-500/40 text-center flex flex-col items-center shadow-2xl">
+                <h2 class="text-3xl sm:text-4xl font-black font-orbitron text-red-500 glow-red mb-1">MISSÃO FALHOU</h2>
+                <p class="text-xs font-orbitron text-gray-400 tracking-widest mb-5 uppercase">Aeronave Destruída</p>
+
+                <div class="w-full bg-slate-900/90 rounded-xl p-4 border border-red-500/20 mb-6 space-y-2.5 text-xs sm:text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Pontuação Final:</span>
+                        <span id="final-score" class="font-orbitron font-bold text-cyan-400">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Inimigos Destruídos:</span>
+                        <span id="final-kills" class="font-orbitron font-bold text-amber-400">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Chefões Derrotados:</span>
+                        <span id="final-bosses" class="font-orbitron font-bold text-red-400">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Combustível Reabastecido:</span>
+                        <span id="final-fuel" class="font-orbitron font-bold text-emerald-400">0L</span>
+                    </div>
+                </div>
+
+                <button id="restart-btn" class="w-full py-4 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black font-orbitron text-lg rounded-xl shadow-lg shadow-red-500/30 active:scale-95 transition-all">
+                    JOGAR NOVAMENTE
+                </button>
+            </div>
+        </div>
+
+        <!-- PAUSE MENU -->
+        <div id="pause-screen" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 z-30">
+            <div class="hud-panel p-8 rounded-2xl border-cyan-500/40 text-center min-w-[280px]">
+                <h2 class="text-3xl font-black font-orbitron text-cyan-400 mb-6">PAUSADO</h2>
+                <button id="resume-btn" class="w-full py-3 bg-cyan-500 text-slate-950 font-bold font-orbitron rounded-xl">CONTINUAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GAME LOGIC SCRIPT -->
+    <script>
+        /* ========================================================================
+           AUDIO ENGINE (Web Audio API Synthesizer)
+           ======================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playShoot() {
+                if (!this.ctx || this.isMuted) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.08);
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playEnemyShoot() {
+                if (!this.ctx || this.isMuted) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.12);
+
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playExplosion(isLarge = false) {
+                if (!this.ctx || this.isMuted) return;
+                const dur = isLarge ? 0.5 : 0.25;
+                const bufferSize = this.ctx.sampleRate * dur;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(isLarge ? 300 : 600, this.ctx.currentTime);
+                filter.frequency.linearRampToValueAtTime(40, this.ctx.currentTime + dur);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(isLarge ? 0.4 : 0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+
+            playFuelSound() {
+                if (!this.ctx || this.isMuted) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(900, this.ctx.currentTime + 0.12);
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playEmpSound() {
+                if (!this.ctx || this.isMuted) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.6);
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.6);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.6);
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        /* ========================================================================
+           CANVAS & CONTROLS SETUP
+           ======================================================================== */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const GAME_WIDTH = 600;
+        const GAME_HEIGHT = 900;
+
+        function resizeCanvas() {
+            const windowW = window.innerWidth;
+            const windowH = window.innerHeight;
+            const aspect = GAME_WIDTH / GAME_HEIGHT;
+
+            let targetW = windowH * aspect;
+            let targetH = windowH;
+
+            if (targetW > windowW) {
+                targetW = windowW;
+                targetH = windowW / aspect;
+            }
+
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+            canvas.style.width = `${targetW}px`;
+            canvas.style.height = `${targetH}px`;
+
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.getElementById('touch-controls').classList.remove('hidden');
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        /* Keyboard Controls */
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'KeyP') togglePause();
+            audio.init();
+        });
+        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+        /* Touch Joystick & Buttons Setup */
+        let touchX = 0, touchY = 0;
+        let touchBoosting = false, touchBraking = false;
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+
+        if (joystickZone) {
+            let touchId = null, rect = null;
+
+            joystickZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                touchId = touch.identifier;
+                rect = joystickZone.getBoundingClientRect();
+                updateJoystick(touch);
+            }, { passive: false });
+
+            joystickZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (let t of e.changedTouches) {
+                    if (t.identifier === touchId) updateJoystick(t);
+                }
+            }, { passive: false });
+
+            const resetJoystick = (e) => {
+                e.preventDefault();
+                touchX = 0; touchY = 0;
+                joystickKnob.style.transform = `translate(0px, 0px)`;
+            };
+
+            joystickZone.addEventListener('touchend', resetJoystick, { passive: false });
+            joystickZone.addEventListener('touchcancel', resetJoystick, { passive: false });
+
+            function updateJoystick(touch) {
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                let dx = touch.clientX - centerX;
+                let dy = touch.clientY - centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const maxR = rect.width / 2;
+
+                if (distance > maxR) {
+                    dx = (dx / distance) * maxR;
+                    dy = (dy / distance) * maxR;
+                }
+
+                touchX = dx / maxR;
+                touchY = dy / maxR;
+                joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+            }
+
+            // Touch Action Buttons
+            const bindTouchBtn = (id, keyName) => {
+                const btn = document.getElementById(id);
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; audio.init(); }, { passive: false });
+                btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; }, { passive: false });
+            };
+
+            bindTouchBtn('btn-fire', 'Space');
+            bindTouchBtn('btn-emp', 'KeyE');
+            
+            // Boost / Brake Touch Buttons
+            const btnBoost = document.getElementById('btn-boost');
+            btnBoost.addEventListener('touchstart', (e) => { e.preventDefault(); touchBoosting = true; }, { passive: false });
+            btnBoost.addEventListener('touchend', (e) => { e.preventDefault(); touchBoosting = false; }, { passive: false });
+
+            const btnBrake = document.getElementById('btn-brake');
+            btnBrake.addEventListener('touchstart', (e) => { e.preventDefault(); touchBraking = true; }, { passive: false });
+            btnBrake.addEventListener('touchend', (e) => { e.preventDefault(); touchBraking = false; }, { passive: false });
+        }
+
+        /* ========================================================================
+           GAME STATE & CONSTANTS
+           ======================================================================== */
+        let gameState = 'MENU'; // MENU, PLAYING, PAUSED, GAMEOVER
+        let score = 0;
+        let combo = 1.0;
+        let lives = 3;
+        let fuel = 100;
+        let gameDistance = 0;
+        let speed = 4;
+        let baseSpeed = 4;
+        let sector = 1;
+        let killsCount = 0;
+        let bossesDefeated = 0;
+        let totalFuelCollected = 0;
+
+        // Visual Entities Arrays
+        let particles = [];
+        let bullets = [];
+        let enemyBullets = [];
+        let enemies = [];
+        let floatTexts = [];
+        let screenShake = 0;
+
+        // Player Fighter Definition
+        const player = {
+            x: GAME_WIDTH / 2,
+            y: GAME_HEIGHT - 130,
+            width: 42,
+            height: 52,
+            tilt: 0,
+            emps: 2,
+            invulnerableTimer: 0,
+            lastShootTime: 0
+        };
+
+        // Procedural River Configuration
+        let riverCenterX = GAME_WIDTH / 2;
+        let targetRiverCenterX = GAME_WIDTH / 2;
+        let riverWidth = 320;
+        let targetRiverWidth = 320;
+        let bossActive = false;
+        let activeBoss = null;
+
+        /* ========================================================================
+           PROCEDURAL RIVER GENERATION
+           ======================================================================== */
+        class RiverSegment {
+            constructor(y, centerX, width) {
+                this.y = y;
+                this.centerX = centerX;
+                this.width = width;
+                this.leftBank = centerX - width / 2;
+                this.rightBank = centerX + width / 2;
+            }
+        }
+
+        let riverSegments = [];
+        const SEGMENT_HEIGHT = 10;
+        const TOTAL_SEGMENTS = Math.ceil(GAME_HEIGHT / SEGMENT_HEIGHT) + 5;
+
+        function initRiver() {
+            riverSegments = [];
+            for (let i = 0; i < TOTAL_SEGMENTS; i++) {
+                riverSegments.push(new RiverSegment(i * SEGMENT_HEIGHT, GAME_WIDTH / 2, 340));
+            }
+        }
+
+        function updateRiver() {
+            riverSegments.forEach(s => s.y += speed);
+
+            if (riverSegments[0].y > GAME_HEIGHT) {
+                riverSegments.shift();
+
+                if (Math.random() < 0.08 && !bossActive) {
+                    targetRiverCenterX = GAME_WIDTH / 2 + (Math.random() * 180 - 90);
+                    targetRiverWidth = 220 + Math.random() * 180;
+                }
+
+                riverCenterX += (targetRiverCenterX - riverCenterX) * 0.05;
+                riverWidth += (targetRiverWidth - riverWidth) * 0.05;
+
+                const topY = riverSegments[riverSegments.length - 1].y - SEGMENT_HEIGHT;
+                riverSegments.push(new RiverSegment(topY, riverCenterX, riverWidth));
+            }
+        }
+
+        function getRiverAtY(y) {
+            let seg = riverSegments.find(s => Math.abs(s.y - y) < SEGMENT_HEIGHT);
+            return seg || new RiverSegment(y, GAME_WIDTH / 2, 300);
+        }
+
+        function drawRiver() {
+            // Earth Shoreline
+            ctx.fillStyle = '#0a2312';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Water Path
+            ctx.beginPath();
+            ctx.moveTo(riverSegments[0].leftBank, riverSegments[0].y);
+            for (let i = 1; i < riverSegments.length; i++) ctx.lineTo(riverSegments[i].leftBank, riverSegments[i].y);
+            for (let i = riverSegments.length - 1; i >= 0; i--) ctx.lineTo(riverSegments[i].rightBank, riverSegments[i].y);
+            ctx.closePath();
+
+            let waterGrad = ctx.createLinearGradient(0, 0, GAME_WIDTH, 0);
+            waterGrad.addColorStop(0, '#062846');
+            waterGrad.addColorStop(0.5, '#0a4275');
+            waterGrad.addColorStop(1, '#062846');
+            ctx.fillStyle = waterGrad;
+            ctx.fill();
+
+            // Neon Shoreline Glow
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 6;
+
+            ctx.beginPath();
+            ctx.moveTo(riverSegments[0].leftBank, riverSegments[0].y);
+            for (let i = 1; i < riverSegments.length; i++) ctx.lineTo(riverSegments[i].leftBank, riverSegments[i].y);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(riverSegments[0].rightBank, riverSegments[0].y);
+            for (let i = 1; i < riverSegments.length; i++) ctx.lineTo(riverSegments[i].rightBank, riverSegments[i].y);
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+        }
+
+        /* ========================================================================
+           PARTICLES & FLOATING TEXT
+           ======================================================================== */
+        class Particle {
+            constructor(x, y, vx, vy, color, size, life) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.color = color; this.size = size; this.life = life; this.maxLife = life;
+            }
+            update() { this.x += this.vx; this.y += this.vy; this.life--; }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createExplosion(x, y, isLarge = false) {
+            audio.playExplosion(isLarge);
+            screenShake = isLarge ? 12 : 5;
+            const count = isLarge ? 45 : 20;
+            const colors = ['#ff3300', '#ff9900', '#ffff00', '#ffffff'];
+
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = Math.random() * (isLarge ? 7 : 4) + 1;
+                particles.push(new Particle(
+                    x, y,
+                    Math.cos(angle) * spd, Math.sin(angle) * spd,
+                    colors[Math.floor(Math.random() * colors.length)],
+                    Math.random() * (isLarge ? 5 : 3) + 1,
+                    Math.random() * 20 + 15
+                ));
+            }
+        }
+
+        function addFloatingText(x, y, text, color = '#00f0ff') {
+            floatTexts.push({ x, y, text, color, life: 30, maxLife: 30 });
+        }
+
+        /* ========================================================================
+           ENEMIES, DEPOTS, BRIDGES & BOSS CLASSES
+           ======================================================================== */
+        class Enemy {
+            constructor(x, y, type) {
+                this.x = x; this.y = y; this.type = type;
+                this.shootTimer = Math.floor(Math.random() * 40);
+                this.flashTimer = 0;
+
+                if (type === 'FUEL') { this.width = 30; this.height = 40; this.hp = 1; }
+                else if (type === 'JET') { this.width = 32; this.height = 32; this.hp = 1; }
+                else if (type === 'HELICOPTER') { this.width = 34; this.height = 34; this.hp = 2; this.vx = Math.random() > 0.5 ? 2 : -2; }
+                else if (type === 'SHIP') { this.width = 44; this.height = 56; this.hp = 4; }
+                else if (type === 'TURRET') { this.width = 28; this.height = 28; this.hp = 3; }
+                else if (type === 'BRIDGE') { this.width = 280; this.height = 40; this.hp = 15; }
+                this.maxHp = this.hp;
+            }
+
+            update() {
+                this.y += speed * (this.type === 'JET' ? 1.3 : 0.8);
+
+                if (this.type === 'HELICOPTER') {
+                    this.x += this.vx;
+                    const rSeg = getRiverAtY(this.y);
+                    if (this.x < rSeg.leftBank + 20 || this.x > rSeg.rightBank - 20) this.vx *= -1;
+                }
+
+                if (this.flashTimer > 0) this.flashTimer--;
+
+                // Shooting Logic
+                this.shootTimer++;
+                if ((this.type === 'TURRET' || this.type === 'SHIP') && this.shootTimer > 80) {
+                    this.shootTimer = 0;
+                    let angle = Math.atan2(player.y - this.y, player.x - this.x);
+                    enemyBullets.push({ x: this.x, y: this.y, vx: Math.cos(angle) * 5, vy: Math.sin(angle) * 5, size: 4 });
+                    audio.playEnemyShoot();
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                if (this.flashTimer > 0) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.restore();
+                    return;
+                }
+
+                if (this.type === 'FUEL') {
+                    ctx.fillStyle = '#10b981';
+                    ctx.fillRect(-15, -20, 30, 40);
+                    ctx.strokeStyle = '#6ee7b7';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(-15, -20, 30, 40);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '900 11px Orbitron';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('FUEL', 0, 4);
+                } 
+                else if (this.type === 'JET') {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.moveTo(0, 16); ctx.lineTo(-16, -16); ctx.lineTo(0, -6); ctx.lineTo(16, -16);
+                    ctx.closePath(); ctx.fill();
+                } 
+                else if (this.type === 'HELICOPTER') {
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(18, 0); ctx.stroke();
+                } 
+                else if (this.type === 'SHIP') {
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(-16, -26, 32, 52);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+                } 
+                else if (this.type === 'TURRET') {
+                    ctx.fillStyle = '#1e293b'; ctx.fillRect(-14, -14, 28, 28);
+                    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+                }
+                else if (this.type === 'BRIDGE') {
+                    ctx.fillStyle = '#475569'; ctx.fillRect(-140, -20, 280, 40);
+                    ctx.fillStyle = '#f59e0b'; ctx.fillRect(-30, -15, 60, 30);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        /* Multi-Boss System */
+        class Boss {
+            constructor(type) {
+                this.type = type;
+                this.x = GAME_WIDTH / 2;
+                this.y = -120;
+                this.targetY = 180;
+                this.shootTimer = 0;
+                this.flashTimer = 0;
+
+                if (type === 1) {
+                    this.name = "ENCOURAÇADO RIO GRANDE";
+                    this.hp = 140; this.maxHp = 140; this.width = 130; this.height = 170;
+                } else if (type === 2) {
+                    this.name = "FORTALEZA VOADORA ZEPHYR";
+                    this.hp = 180; this.maxHp = 180; this.width = 170; this.height = 110;
+                } else if (type === 3) {
+                    this.name = "SUBMARINO CYBER-HYDRA";
+                    this.hp = 220; this.maxHp = 220; this.width = 140; this.height = 140;
+                } else {
+                    this.name = "PONTE-FORTALEZA TITAN";
+                    this.hp = 260; this.maxHp = 260; this.width = 280; this.height = 90;
+                }
+            }
+
+            update() {
+                if (this.y < this.targetY) { this.y += 2; return; }
+
+                this.shootTimer++;
+                if (this.flashTimer > 0) this.flashTimer--;
+
+                if (this.type !== 4) {
+                    this.x = GAME_WIDTH / 2 + Math.sin(Date.now() * 0.002) * 110;
+                }
+
+                // Boss Attacks
+                if (this.type === 1 && this.shootTimer % 35 === 0) {
+                    for (let angle of [-0.3, 0, 0.3]) {
+                        enemyBullets.push({ x: this.x, y: this.y + 40, vx: Math.sin(angle) * 5, vy: Math.cos(angle) * 5 + 2, size: 6 });
+                    }
+                    audio.playEnemyShoot();
+                } else if (this.type === 2 && this.shootTimer % 45 === 0) {
+                    enemies.push(new Enemy(this.x + (Math.random() * 80 - 40), this.y, 'JET'));
+                } else if (this.type === 3 && this.shootTimer % 25 === 0) {
+                    let angle = Math.atan2(player.y - this.y, player.x - this.x);
+                    enemyBullets.push({ x: this.x, y: this.y, vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6, size: 7 });
+                    audio.playEnemyShoot();
+                } else if (this.type === 4 && this.shootTimer % 30 === 0) {
+                    enemyBullets.push({ x: this.x - 80 + Math.random() * 160, y: this.y + 20, vx: 0, vy: 6, size: 5 });
+                    audio.playEnemyShoot();
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                if (this.flashTimer > 0) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.restore();
+                    return;
+                }
+
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        /* ========================================================================
+           SPAWNING LOGIC
+           ======================================================================== */
+        function spawnEntities() {
+            if (bossActive) return;
+
+            if (gameDistance > sector * 1600) {
+                triggerBoss();
+                return;
+            }
+
+            if (Math.random() < 0.035) {
+                const rSeg = getRiverAtY(-30);
+                const spawnX = rSeg.leftBank + 30 + Math.random() * (rSeg.width - 60);
+                const roll = Math.random();
+
+                if (roll < 0.28) enemies.push(new Enemy(spawnX, -30, 'FUEL'));
+                else if (roll < 0.52) enemies.push(new Enemy(spawnX, -30, 'JET'));
+                else if (roll < 0.76) enemies.push(new Enemy(spawnX, -30, 'HELICOPTER'));
+                else enemies.push(new Enemy(spawnX, -30, 'SHIP'));
+            }
+
+            if (Math.random() < 0.012) {
+                const rSeg = getRiverAtY(-30);
+                const shoreX = Math.random() < 0.5 ? rSeg.leftBank - 15 : rSeg.rightBank + 15;
+                enemies.push(new Enemy(shoreX, -30, 'TURRET'));
+            }
+
+            if (Math.random() < 0.005 && gameDistance % 800 < 50) {
+                const rSeg = getRiverAtY(-40);
+                enemies.push(new Enemy(rSeg.centerX, -40, 'BRIDGE'));
+            }
+        }
+
+        function triggerBoss() {
+            bossActive = true;
+            let bType = ((sector - 1) % 4) + 1;
+            activeBoss = new Boss(bType);
+
+            document.getElementById('boss-hud').classList.remove('hidden');
+            document.getElementById('boss-name').innerText = activeBoss.name;
+        }
+
+        /* ========================================================================
+           PLAYER UPDATES & SHOOTING
+           ======================================================================== */
+        function updatePlayer() {
+            // Speed Controls
+            if (keys['ShiftLeft'] || keys['KeyW'] || keys['ArrowUp'] || touchBoosting) {
+                speed = baseSpeed * 1.6;
+                fuel -= 0.07;
+            } else if (keys['KeyS'] || keys['ArrowDown'] || touchBraking) {
+                speed = baseSpeed * 0.5;
+                fuel -= 0.02;
+            } else {
+                speed = baseSpeed;
+                fuel -= 0.04;
+            }
+
+            // Directional Movement
+            let moveX = 0, moveY = 0;
+            if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+            if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+            if (keys['KeyW'] || keys['ArrowUp']) moveY -= 1;
+            if (keys['KeyS'] || keys['ArrowDown']) moveY += 1;
+
+            if (touchX !== 0) moveX = touchX;
+            if (touchY !== 0) moveY = touchY;
+
+            player.x += moveX * 6.5;
+            player.y += moveY * 5;
+            player.tilt = moveX * 16;
+
+            player.x = Math.max(25, Math.min(GAME_WIDTH - 25, player.x));
+            player.y = Math.max(50, Math.min(GAME_HEIGHT - 50, player.y));
+
+            // River Shore Collision
+            const rSeg = getRiverAtY(player.y);
+            if (player.x < rSeg.leftBank + 14 || player.x > rSeg.rightBank - 14) {
+                if (player.invulnerableTimer <= 0) playerHit();
+            }
+
+            // SHOOTING MECHANIC (Auto-Fire Support)
+            if ((keys['Space'] || keys['KeyZ'] || keys['KeyJ']) && Date.now() - player.lastShootTime > 110) {
+                player.lastShootTime = Date.now();
+                bullets.push({ x: player.x - 10, y: player.y - 25, vy: -15 });
+                bullets.push({ x: player.x + 10, y: player.y - 25, vy: -15 });
+                audio.playShoot();
+            }
+
+            // EMP Bomb Trigger
+            if ((keys['KeyE'] || keys['KeyK']) && player.emps > 0) {
+                keys['KeyE'] = false; keys['KeyK'] = false;
+                player.emps--;
+                audio.playEmpSound();
+                screenShake = 15;
+                enemyBullets = [];
+                enemies.forEach(e => {
+                    createExplosion(e.x, e.y);
+                    score += 100;
+                });
+                enemies = [];
+            }
+
+            if (player.invulnerableTimer > 0) player.invulnerableTimer--;
+
+            // Thrust Particles
+            particles.push(new Particle(
+                player.x + (Math.random() * 6 - 3), player.y + 24,
+                (Math.random() - 0.5) * 1, Math.random() * 3 + 3,
+                '#00f0ff', Math.random() * 3 + 1, 8
+            ));
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate((player.tilt * Math.PI) / 180);
+
+            // Projected Ground Shadow
+            ctx.save();
+            ctx.translate(14, 22);
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.beginPath();
+            ctx.moveTo(0, -24); ctx.lineTo(-18, 18); ctx.lineTo(18, 18); ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            if (player.invulnerableTimer % 6 > 3) {
+                ctx.restore();
+                return;
+            }
+
+            // Player Jet Design
+            ctx.fillStyle = '#00f0ff';
+            ctx.beginPath();
+            ctx.moveTo(0, -26); ctx.lineTo(-21, 16); ctx.lineTo(-7, 10); ctx.lineTo(0, 22); ctx.lineTo(7, 10); ctx.lineTo(21, 16);
+            ctx.closePath(); ctx.fill();
+
+            // Cockpit Window
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.ellipse(0, -5, 4, 9, 0, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        /* ========================================================================
+           COMBAT & HITBOX COLLISIONS
+           ======================================================================== */
+        function checkCollisions() {
+            // Player Bullets vs Enemies / Boss
+            bullets.forEach((b, bIdx) => {
+                b.y += b.vy;
+
+                // Boss Collision
+                if (bossActive && activeBoss) {
+                    if (Math.abs(b.x - activeBoss.x) < activeBoss.width / 2 && Math.abs(b.y - activeBoss.y) < activeBoss.height / 2) {
+                        activeBoss.hp -= 2;
+                        activeBoss.flashTimer = 3;
+                        createExplosion(b.x, b.y, false);
+                        bullets.splice(bIdx, 1);
+
+                        if (activeBoss.hp <= 0) {
+                            createExplosion(activeBoss.x, activeBoss.y, true);
+                            score += 3000;
+                            bossesDefeated++;
+                            sector++;
+                            bossActive = false;
+                            activeBoss = null;
+                            document.getElementById('boss-hud').classList.add('hidden');
+                        }
+                        return;
+                    }
+                }
+
+                // Regular Enemies & Fuel Collision
+                enemies.forEach((e, eIdx) => {
+                    if (Math.abs(b.x - e.x) < e.width / 2 && Math.abs(b.y - e.y) < e.height / 2) {
+                        e.hp -= 1;
+                        e.flashTimer = 3;
+                        bullets.splice(bIdx, 1);
+
+                        if (e.hp <= 0) {
+                            createExplosion(e.x, e.y, e.type === 'BRIDGE');
+                            enemies.splice(eIdx, 1);
+
+                            if (e.type === 'FUEL') {
+                                score += 80;
+                                addFloatingText(e.x, e.y, '+80', '#ef4444');
+                            } else {
+                                killsCount++;
+                                combo += 0.1;
+                                const pts = Math.floor(100 * combo);
+                                score += pts;
+                                addFloatingText(e.x, e.y, `+${pts}`, '#00f0ff');
+                            }
+                        }
+                    }
+                });
+            });
+
+            // Player Collisions
+            enemies.forEach((e, eIdx) => {
+                if (Math.abs(player.x - e.x) < (player.width + e.width) / 2.5 && Math.abs(player.y - e.y) < (player.height + e.height) / 2.5) {
+                    if (e.type === 'FUEL') {
+                        fuel = Math.min(100, fuel + 30);
+                        totalFuelCollected += 30;
+                        audio.playFuelSound();
+                        addFloatingText(player.x, player.y - 30, '+REFUEL!', '#10b981');
+                        enemies.splice(eIdx, 1);
+                    } else if (player.invulnerableTimer <= 0) {
+                        playerHit();
+                    }
+                }
+            });
+
+            // Enemy Bullets Colliding with Player
+            enemyBullets.forEach((eb, ebIdx) => {
+                eb.x += eb.vx; eb.y += eb.vy;
+                if (Math.abs(player.x - eb.x) < 16 && Math.abs(player.y - eb.y) < 16) {
+                    enemyBullets.splice(ebIdx, 1);
+                    if (player.invulnerableTimer <= 0) playerHit();
+                }
+            });
+        }
+
+        function playerHit() {
+            createExplosion(player.x, player.y, true);
+            lives--;
+            combo = 1.0;
+            player.invulnerableTimer = 100;
+
+            if (lives <= 0) gameOver();
+        }
+
+        /* ========================================================================
+           UI UPDATE & RENDERING LOOP
+           ======================================================================== */
+        function updateUI() {
+            document.getElementById('hud-score').innerText = score.toString().padStart(6, '0');
+            document.getElementById('hud-combo').innerText = `x${combo.toFixed(1)}`;
+            document.getElementById('hud-lives').innerText = lives;
+            document.getElementById('hud-emps').innerText = player.emps;
+            document.getElementById('fuel-text').innerText = `${Math.floor(fuel)}%`;
+
+            const fuelBar = document.getElementById('fuel-bar');
+            fuelBar.style.width = `${Math.max(0, fuel)}%`;
+
+            if (fuel < 25) {
+                document.getElementById('low-fuel-warning').classList.remove('hidden');
+            } else {
+                document.getElementById('low-fuel-warning').classList.add('hidden');
+            }
+
+            if (bossActive && activeBoss) {
+                const bossHpPercent = Math.max(0, (activeBoss.hp / activeBoss.maxHp) * 100);
+                document.getElementById('boss-hp-bar').style.width = `${bossHpPercent}%`;
+                document.getElementById('boss-hp-text').innerText = `${Math.ceil(bossHpPercent)}%`;
+            }
+        }
+
+        function gameLoop() {
+            if (gameState !== 'PLAYING') return;
+
+            // Screen Shake Effect
+            ctx.save();
+            if (screenShake > 0) {
+                ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+                screenShake *= 0.9;
+            }
+
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            gameDistance += speed;
+            fuel -= 0.02;
+            if (fuel <= 0) { gameOver(); return; }
+
+            updateRiver();
+            spawnEntities();
+            updatePlayer();
+
+            if (bossActive && activeBoss) activeBoss.update();
+
+            enemies.forEach(e => e.update());
+            checkCollisions();
+
+            // Render World & Entities
+            drawRiver();
+
+            enemies.forEach(e => e.draw());
+            if (bossActive && activeBoss) activeBoss.draw();
+
+            // Render Bullets
+            ctx.fillStyle = '#ffff00';
+            bullets.forEach(b => ctx.fillRect(b.x - 2, b.y - 8, 4, 12));
+
+            ctx.fillStyle = '#ff0055';
+            enemyBullets.forEach(eb => {
+                ctx.beginPath(); ctx.arc(eb.x, eb.y, eb.size, 0, Math.PI * 2); ctx.fill();
+            });
+
+            drawPlayer();
+
+            // Render Particles
+            particles.forEach((p, idx) => {
+                p.update(); p.draw();
+                if (p.life <= 0) particles.splice(idx, 1);
+            });
+
+            // Floating Text Effects
+            floatTexts.forEach((ft, idx) => {
+                ft.y -= 1; ft.life--;
+                ctx.save();
+                ctx.globalAlpha = ft.life / ft.maxLife;
+                ctx.fillStyle = ft.color;
+                ctx.font = '900 14px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+                if (ft.life <= 0) floatTexts.splice(idx, 1);
+            });
+
+            ctx.restore();
+            updateUI();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            score = 0; combo = 1.0; lives = 3; fuel = 100;
+            gameDistance = 0; sector = 1; killsCount = 0; bossesDefeated = 0; totalFuelCollected = 0;
+
+            player.x = GAME_WIDTH / 2;
+            player.y = GAME_HEIGHT - 130;
+            player.emps = 2;
+
+            enemies = []; bullets = []; enemyBullets = []; particles = []; floatTexts = [];
+            bossActive = false; activeBoss = null;
+
+            initRiver();
+
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('pause-screen').classList.add('hidden');
+
+            gameState = 'PLAYING';
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-kills').innerText = killsCount;
+            document.getElementById('final-bosses').innerText = bossesDefeated;
+            document.getElementById('final-fuel').innerText = `${Math.floor(totalFuelCollected)}L`;
+
+            document.getElementById('game-over-screen').classList.remove('hidden');
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                document.getElementById('pause-screen').classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                document.getElementById('pause-screen').classList.add('hidden');
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+        document.getElementById('resume-btn').addEventListener('click', togglePause);
+
+        initRiver();
+    </script>
+</body>
+</html>
